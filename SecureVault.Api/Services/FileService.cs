@@ -9,6 +9,11 @@ public class FileService : IFileService
     private static readonly List<StoredFile> _fileDb = new();
     private readonly string _storageDirectory = "VaultStorage";
 
+    // Constants for share link generation
+    private const int MAX_VALID_HOURS = 8760; // 1 year
+    private const int TOKEN_LENGTH = 32;
+    private const string BASE_URL = "https://api.securevault.com";
+
     public FileService()
     {
         // Ensure storage directory exists
@@ -58,9 +63,26 @@ public class FileService : IFileService
 
     public string GenerateShareLink(Guid fileId, double validHours)
     {
-        // TODO: Assignment 1 - Task 2
-        // Ask Copilot to implement logic here.
-        // It needs to: find file, create unique token, set ExpirationDate.
-        throw new NotImplementedException();
+        // Validate hours
+        if (validHours <= 0)
+            throw new ArgumentException("Valid hours must be greater than 0.", nameof(validHours));
+
+        if (validHours > MAX_VALID_HOURS)
+            throw new ArgumentException($"Valid hours cannot exceed {MAX_VALID_HOURS} hours (1 year).", nameof(validHours));
+
+        // Find file
+        var file = _fileDb.FirstOrDefault(f => f.Id == fileId);
+        if (file == null)
+            throw new KeyNotFoundException($"File with ID {fileId} not found.");
+
+        // Generate secure token
+        var shareToken = Guid.NewGuid().ToString("N").Substring(0, TOKEN_LENGTH);
+
+        // Update file metadata
+        file.ShareToken = shareToken;
+        file.ExpirationDate = DateTime.UtcNow.AddHours(validHours);
+
+        // Return share link
+        return $"{BASE_URL}/api/files/download/{shareToken}";
     }
 }
