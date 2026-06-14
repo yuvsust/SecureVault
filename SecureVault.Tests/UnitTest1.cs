@@ -116,6 +116,81 @@ public class FileServiceTests
 
     #endregion
 
+    #region Batch Upload Tests
+
+    [Fact]
+    public async Task BatchUploadAsync_WithMultipleFiles_ReturnsAllResults()
+    {
+        // Arrange
+        var mockFormCollection = new Mock<IFormCollection>();
+        var files = new List<IFormFile>
+        {
+            CreateMockFile("file1.txt").Object,
+            CreateMockFile("file2.txt").Object,
+            CreateMockFile("file3.txt").Object
+        };
+        mockFormCollection.Setup(fc => fc.Files).Returns(new FormFileCollection { files[0], files[1], files[2] });
+
+        // Act
+        var results = await _fileService.BatchUploadAsync(files, CancellationToken.None);
+
+        // Assert
+        Assert.NotEmpty(results);
+        Assert.Equal(3, results.Count);
+        Assert.All(results, r => Assert.True(r.Success));
+    }
+
+    [Fact]
+    public async Task BatchUploadAsync_WithEmptyCollection_ReturnsEmptyResults()
+    {
+        // Arrange
+        var mockFormCollection = new Mock<IFormCollection>();
+        mockFormCollection.Setup(fc => fc.Files).Returns(new FormFileCollection());
+
+        // Act
+        var results = await _fileService.BatchUploadAsync(new List<IFormFile>(), CancellationToken.None);
+
+        // Assert
+        Assert.Empty(results);
+    }
+
+    #endregion
+
+    #region ShareLink Extension Tests
+
+    [Fact]
+    public async Task ExtendShareLinkAsync_WithValidFileId_ExtendsExpiration()
+    {
+        // Arrange
+        var uploadedFile = await UploadTestFileAsync("extend.txt");
+        var link = _fileService.GenerateShareLink(uploadedFile.Id, 2);
+        var token = link.Split('/').Last();
+
+        // Act
+        var result = await _fileService.ExtendShareLinkAsync(uploadedFile.Id, 3, token);
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.Equal(uploadedFile.Id, result.FileId);
+        Assert.NotNull(result.NewExpirationDate);
+        Assert.Contains(result.ShareToken, link);
+    }
+
+    [Fact]
+    public async Task ExtendShareLinkAsync_WithInvalidFileId_ThrowsKeyNotFoundException()
+    {
+        // Arrange
+        var nonExistentId = Guid.NewGuid();
+
+        // Act & Assert
+        await Assert.ThrowsAsync<KeyNotFoundException>(async () =>
+        {
+            await _fileService.ExtendShareLinkAsync(nonExistentId, 3, "invalid");
+        });
+    }
+
+    #endregion
+
     #region GenerateShareLink Tests
 
     [Fact]

@@ -1,8 +1,5 @@
 ﻿using System;
-using System.IO;
-using System.Threading;
-using Microsoft.AspNetCore.Http;
-using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using Microsoft.AspNetCore.Http;
@@ -26,4 +23,10 @@ public interface IFileService
 
     // Returns file details DTO (safe for API response, no internal paths exposed).
     Task<FileDetailsDto> GetFileDetailsAsync(Guid fileId);
+
+    // Batch upload multiple files and return results with individual status.
+    Task<List<BatchUploadResult>> BatchUploadAsync(IEnumerable<IFormFile> files, CancellationToken ct = default);
+
+    // Extend the expiration on an existing share link. Caller must provide the current share token.
+    Task<ShareLinkExtensionResult> ExtendShareLinkAsync(Guid fileId, double additionalHours, string shareToken);
 }
