@@ -116,6 +116,46 @@ public class FileServiceTests
 
     #endregion
 
+    #region Batch Upload Tests
+
+    [Fact]
+    public async Task BatchUploadAsync_WithMultipleFiles_ReturnsAllResults()
+    {
+        // Arrange
+        var mockFormCollection = new Mock<IFormCollection>();
+        var files = new List<IFormFile>
+        {
+            CreateMockFile("file1.txt").Object,
+            CreateMockFile("file2.txt").Object,
+            CreateMockFile("file3.txt").Object
+        };
+        mockFormCollection.Setup(fc => fc.Files).Returns(new FormFileCollection { files[0], files[1], files[2] });
+
+        // Act
+        var results = await _fileService.BatchUploadAsync(mockFormCollection.Object);
+
+        // Assert
+        Assert.NotEmpty(results);
+        Assert.Equal(3, results.Count);
+        Assert.All(results, r => Assert.True(r.Success));
+    }
+
+    [Fact]
+    public async Task BatchUploadAsync_WithEmptyCollection_ReturnsEmptyResults()
+    {
+        // Arrange
+        var mockFormCollection = new Mock<IFormCollection>();
+        mockFormCollection.Setup(fc => fc.Files).Returns(new FormFileCollection());
+
+        // Act
+        var results = await _fileService.BatchUploadAsync(mockFormCollection.Object);
+
+        // Assert
+        Assert.Empty(results);
+    }
+
+    #endregion
+
     #region GenerateShareLink Tests
 
     [Fact]

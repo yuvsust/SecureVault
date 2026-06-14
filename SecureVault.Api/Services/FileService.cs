@@ -172,4 +172,38 @@ public class FileService : IFileService
 
         return Task.FromResult(dto);
     }
+
+    public async Task<List<BatchUploadResult>> BatchUploadAsync(IFormCollection files)
+    {
+        var results = new List<BatchUploadResult>();
+
+        // FLAW 1: No atomic transaction. If one file fails mid-way, previous files are already in the store.
+        // FLAW 2: Missing per-file size validation before upload starts.
+        // FLAW 3: Serial upload instead of parallel (inefficient for multiple large files).
+        
+        foreach (var file in files.Files)
+        {
+            var result = new BatchUploadResult { FileName = file.FileName };
+
+            try
+            {
+                // FLAW: No pre-check for file size, empty files, or other issues.
+                var uploadedFile = await UploadFileAsync(file);
+                result.Success = true;
+                result.Message = "File uploaded successfully.";
+                result.FileId = uploadedFile.Id;
+            }
+            catch (Exception ex)
+            {
+                // FLAW 3: Generic error message. Should provide per-file feedback.
+                result.Success = false;
+                result.Message = ex.Message; // Potentially leaks internal details
+                result.FileId = null;
+            }
+
+            results.Add(result);
+        }
+
+        return results;
+    }
 }

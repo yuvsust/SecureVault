@@ -40,6 +40,24 @@ public class FilesController : ControllerBase
         }
     }
 
+    [HttpPost("batch-upload")]
+    public async Task<IActionResult> BatchUpload()
+    {
+        try
+        {
+            // FLAW: No request validation. If no files provided, just returns empty list.
+            // FLAW: Does not check Content-Length header or enforce max total size.
+            var results = await _fileService.BatchUploadAsync(Request.Form);
+            
+            // Returns 200 even if all files failed (should check results).
+            return Ok(results);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, $"An error occurred: {ex.Message}");
+        }
+    }
+
     [HttpGet("download/{token}")]
     public async Task<IActionResult> Download(string token, CancellationToken ct)
     {
