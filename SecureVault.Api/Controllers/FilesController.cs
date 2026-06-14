@@ -41,20 +41,31 @@ public class FilesController : ControllerBase
     }
 
     [HttpPost("batch-upload")]
-    public async Task<IActionResult> BatchUpload()
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> BatchUpload([FromForm] List<IFormFile> files, CancellationToken ct)
     {
         try
         {
-            // FLAW: No request validation. If no files provided, just returns empty list.
-            // FLAW: Does not check Content-Length header or enforce max total size.
-            var results = await _fileService.BatchUploadAsync(Request.Form);
-            
-            // Returns 200 even if all files failed (should check results).
+            if (!Request.HasFormContentType || files == null || files.Count == 0)
+                return BadRequest("No files provided. Use multipart/form-data with at least one file.");
+
+            // Enforce quick limits at controller level to avoid unnecessary processing
+            const int MAX_FILES = 20;
+            if (files.Count > MAX_FILES)
+                return BadRequest($"Too many files. Maximum is {MAX_FILES}.");
+
+            var results = await _fileService.BatchUploadAsync(files, ct);
+
+            // Return 200 with per-file statuses; clients should inspect results for failures.
             return Ok(results);
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
         {
-            return StatusCode(StatusCodes.Status500InternalServerError, $"An error occurred: {ex.Message}");
+            return StatusCode(StatusCodes.Status408RequestTimeout, "Request was cancelled.");
+        }
+        catch (Exception)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, "An internal error occurred.");
         }
     }
 
@@ -99,28 +110,31 @@ public class FilesController : ControllerBase
     }
 
     [HttpPost("{id}/extend-share")]
-    public async Task<IActionResult> ExtendShare(Guid id, [FromQuery] double additionalHours)
+    public async Task<IActionResult> ExtendShare(Guid id, [FromQuery] double additionalHours, [FromHeader(Name = "X-Share-Token")] string shareToken)
     {
         try
         {
-            var result = await _fileService.ExtendShareLinkAsync(id, additionalHours);
+            if (string.IsNullOrWhiteSpace(shareToken))
+                return BadRequest("Missing X-Share-Token header.");
+
+            var result = await _fileService.ExtendShareLinkAsync(id, additionalHours, shareToken);
 
             if (!result.Success)
                 return BadRequest(result.Message);
 
             return Ok(result);
         }
-        catch (KeyNotFoundException ex)
+        catch (KeyNotFoundException)
         {
-            return NotFound(ex.Message);
+            return NotFound("File not found.");
         }
         catch (ArgumentException ex)
         {
             return BadRequest(ex.Message);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(StatusCodes.Status500InternalServerError, $"An error occurred: {ex.Message}");
+            return StatusCode(StatusCodes.Status500InternalServerError, "An internal error occurred.");
         }
     }
 

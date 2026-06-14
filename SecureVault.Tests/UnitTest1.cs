@@ -132,7 +132,7 @@ public class FileServiceTests
         mockFormCollection.Setup(fc => fc.Files).Returns(new FormFileCollection { files[0], files[1], files[2] });
 
         // Act
-        var results = await _fileService.BatchUploadAsync(mockFormCollection.Object);
+        var results = await _fileService.BatchUploadAsync(files, CancellationToken.None);
 
         // Assert
         Assert.NotEmpty(results);
@@ -148,7 +148,7 @@ public class FileServiceTests
         mockFormCollection.Setup(fc => fc.Files).Returns(new FormFileCollection());
 
         // Act
-        var results = await _fileService.BatchUploadAsync(mockFormCollection.Object);
+        var results = await _fileService.BatchUploadAsync(new List<IFormFile>(), CancellationToken.None);
 
         // Assert
         Assert.Empty(results);
@@ -167,7 +167,7 @@ public class FileServiceTests
         var token = link.Split('/').Last();
 
         // Act
-        var result = await _fileService.ExtendShareLinkAsync(uploadedFile.Id, 3);
+        var result = await _fileService.ExtendShareLinkAsync(uploadedFile.Id, 3, token);
 
         // Assert
         Assert.True(result.Success);
@@ -185,7 +185,7 @@ public class FileServiceTests
         // Act & Assert
         await Assert.ThrowsAsync<KeyNotFoundException>(async () =>
         {
-            await _fileService.ExtendShareLinkAsync(nonExistentId, 3);
+            await _fileService.ExtendShareLinkAsync(nonExistentId, 3, "invalid");
         });
     }
 

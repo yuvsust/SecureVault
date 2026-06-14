@@ -25,8 +25,8 @@ public interface IFileService
     Task<FileDetailsDto> GetFileDetailsAsync(Guid fileId);
 
     // Batch upload multiple files and return results with individual status.
-    Task<List<BatchUploadResult>> BatchUploadAsync(IFormCollection files);
+    Task<List<BatchUploadResult>> BatchUploadAsync(IEnumerable<IFormFile> files, CancellationToken ct = default);
 
-    // Extend the expiration on an existing share link.
-    Task<ShareLinkExtensionResult> ExtendShareLinkAsync(Guid fileId, double additionalHours);
+    // Extend the expiration on an existing share link. Caller must provide the current share token.
+    Task<ShareLinkExtensionResult> ExtendShareLinkAsync(Guid fileId, double additionalHours, string shareToken);
 }
