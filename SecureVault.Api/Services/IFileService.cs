@@ -1,8 +1,5 @@
 ﻿using System;
-using System.IO;
-using System.Threading;
-using Microsoft.AspNetCore.Http;
-using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using Microsoft.AspNetCore.Http;
@@ -29,4 +26,7 @@ public interface IFileService
 
     // Batch upload multiple files and return results with individual status.
     Task<List<BatchUploadResult>> BatchUploadAsync(IFormCollection files);
+
+    // Extend the expiration on an existing share link.
+    Task<ShareLinkExtensionResult> ExtendShareLinkAsync(Guid fileId, double additionalHours);
 }

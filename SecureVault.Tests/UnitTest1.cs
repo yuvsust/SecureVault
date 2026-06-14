@@ -156,6 +156,41 @@ public class FileServiceTests
 
     #endregion
 
+    #region ShareLink Extension Tests
+
+    [Fact]
+    public async Task ExtendShareLinkAsync_WithValidFileId_ExtendsExpiration()
+    {
+        // Arrange
+        var uploadedFile = await UploadTestFileAsync("extend.txt");
+        var link = _fileService.GenerateShareLink(uploadedFile.Id, 2);
+        var token = link.Split('/').Last();
+
+        // Act
+        var result = await _fileService.ExtendShareLinkAsync(uploadedFile.Id, 3);
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.Equal(uploadedFile.Id, result.FileId);
+        Assert.NotNull(result.NewExpirationDate);
+        Assert.Contains(result.ShareToken, link);
+    }
+
+    [Fact]
+    public async Task ExtendShareLinkAsync_WithInvalidFileId_ThrowsKeyNotFoundException()
+    {
+        // Arrange
+        var nonExistentId = Guid.NewGuid();
+
+        // Act & Assert
+        await Assert.ThrowsAsync<KeyNotFoundException>(async () =>
+        {
+            await _fileService.ExtendShareLinkAsync(nonExistentId, 3);
+        });
+    }
+
+    #endregion
+
     #region GenerateShareLink Tests
 
     [Fact]

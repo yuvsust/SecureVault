@@ -206,4 +206,35 @@ public class FileService : IFileService
 
         return results;
     }
+
+    public async Task<ShareLinkExtensionResult> ExtendShareLinkAsync(Guid fileId, double additionalHours)
+    {
+        if (additionalHours <= 0)
+            throw new ArgumentException("Additional hours must be positive.", nameof(additionalHours));
+
+        if (!_fileDb.TryGetValue(fileId, out var storedFile))
+            throw new KeyNotFoundException($"File with ID {fileId} not found.");
+
+        if (storedFile.ExpirationDate == null)
+            return new ShareLinkExtensionResult
+            {
+                Success = false,
+                Message = "Share link is not active and cannot be extended.",
+                FileId = fileId
+            };
+
+        // FLAW: No permission or ownership check.
+        // FLAW: Does not enforce a maximum total expiration horizon; token can be extended indefinitely.
+        // FLAW: Potential race if another request deletes or updates the token concurrently.
+        storedFile.ExpirationDate = storedFile.ExpirationDate.Value.AddHours(additionalHours);
+
+        return new ShareLinkExtensionResult
+        {
+            Success = true,
+            Message = "Share link extended.",
+            FileId = fileId,
+            ShareToken = storedFile.ShareToken,
+            NewExpirationDate = storedFile.ExpirationDate
+        };
+    }
 }

@@ -98,6 +98,32 @@ public class FilesController : ControllerBase
         }
     }
 
+    [HttpPost("{id}/extend-share")]
+    public async Task<IActionResult> ExtendShare(Guid id, [FromQuery] double additionalHours)
+    {
+        try
+        {
+            var result = await _fileService.ExtendShareLinkAsync(id, additionalHours);
+
+            if (!result.Success)
+                return BadRequest(result.Message);
+
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, $"An error occurred: {ex.Message}");
+        }
+    }
+
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
     {
