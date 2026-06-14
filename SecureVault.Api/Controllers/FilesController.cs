@@ -39,4 +39,47 @@ public class FilesController : ControllerBase
             return StatusCode(StatusCodes.Status500InternalServerError, $"An error occurred: {ex.Message}");
         }
     }
+
+    [HttpGet("download/{token}")]
+    public async Task<IActionResult> Download(string token, CancellationToken ct)
+    {
+        try
+        {
+            var (stream, fileName) = await _fileService.DownloadFileAsync(token, ct);
+            return File(stream, "application/octet-stream", fileName);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, $"An error occurred: {ex.Message}");
+        }
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        try
+        {
+            var deleted = await _fileService.DeleteFileAsync(id);
+            if (!deleted)
+                return NotFound();
+
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, $"An error occurred: {ex.Message}");
+        }
+    }
 }

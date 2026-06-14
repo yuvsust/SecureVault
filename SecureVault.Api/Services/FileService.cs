@@ -1,12 +1,16 @@
 ﻿using SecureVault.Api.Models;
 using System.Security;
+using System.Collections.Concurrent;
+using System.Security.Cryptography;
 
 namespace SecureVault.Api.Services;
 
 public class FileService : IFileService
 {
-    // We will simulate a "Database" with a static list for now
-    private static readonly List<StoredFile> _fileDb = new();
+    // Thread-safe in-memory stores
+    private static readonly ConcurrentDictionary<Guid, StoredFile> _fileDb = new();
+    // token -> fileId index for fast lookup
+    private static readonly ConcurrentDictionary<string, Guid> _tokenIndex = new();
     private readonly string _storageDirectory = "VaultStorage";
 
     // Constants for share link generation
@@ -41,7 +45,7 @@ public class FileService : IFileService
             throw new SecurityException("Invalid file path detected.");
 
         // Save file to disk using FileStream with async I/O
-        using (var fileStream = new FileStream(storedPath, FileMode.Create, FileAccess.Write, FileShare.None))
+        using (var fileStream = new FileStream(storedPath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, useAsync: true))
         {
             await file.CopyToAsync(fileStream);
         }
@@ -55,8 +59,8 @@ public class FileService : IFileService
             UploadedAt = DateTime.UtcNow
         };
 
-        // Add to static list
-        _fileDb.Add(storedFile);
+        // Add to thread-safe dictionary
+        _fileDb[storedFile.Id] = storedFile;
 
         return storedFile;
     }
@@ -71,18 +75,83 @@ public class FileService : IFileService
             throw new ArgumentException($"Valid hours cannot exceed {MAX_VALID_HOURS} hours (1 year).", nameof(validHours));
 
         // Find file
-        var file = _fileDb.FirstOrDefault(f => f.Id == fileId);
-        if (file == null)
+        if (!_fileDb.TryGetValue(fileId, out var file))
             throw new KeyNotFoundException($"File with ID {fileId} not found.");
 
-        // Generate secure token
-        var shareToken = Guid.NewGuid().ToString("N").Substring(0, TOKEN_LENGTH);
+        // Generate secure token and ensure uniqueness
+        string shareToken;
+        do
+        {
+            // Use RNG to create a URL-safe token
+            var bytes = new byte[24]; // 24 bytes -> 32+ base64 chars
+            RandomNumberGenerator.Fill(bytes);
+            shareToken = Convert.ToBase64String(bytes).TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_')
+                .Substring(0, TOKEN_LENGTH);
+        } while (_tokenIndex.ContainsKey(shareToken));
 
-        // Update file metadata
+        // Update file metadata and indexes
         file.ShareToken = shareToken;
         file.ExpirationDate = DateTime.UtcNow.AddHours(validHours);
+        _tokenIndex[shareToken] = file.Id;
 
         // Return share link
         return $"{BASE_URL}/api/files/download/{shareToken}";
+    }
+
+    public async Task<(Stream Stream, string FileName)> DownloadFileAsync(string shareToken, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(shareToken))
+            throw new ArgumentException("shareToken is required", nameof(shareToken));
+
+        // Lookup token -> fileId
+        if (!_tokenIndex.TryGetValue(shareToken, out var fileId))
+            throw new KeyNotFoundException("Share token not found or expired.");
+
+        // Lookup file metadata
+        if (!_fileDb.TryGetValue(fileId, out var storedFile))
+            throw new KeyNotFoundException("File metadata not found.");
+
+        // Check expiration
+        if (storedFile.ExpirationDate == null || storedFile.ExpirationDate < DateTime.UtcNow)
+            throw new KeyNotFoundException("Share token expired.");
+
+        // Ensure file exists
+        if (!File.Exists(storedFile.StoredPath))
+            throw new KeyNotFoundException("File not found on disk.");
+
+        // Open async read stream and return with original filename
+        var fs = new FileStream(storedFile.StoredPath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
+
+        return (fs, storedFile.FileName);
+    }
+
+    public async Task<bool> DeleteFileAsync(Guid fileId)
+    {
+        // Atomically remove from in-memory store
+        if (!_fileDb.TryRemove(fileId, out var storedFile))
+            return false;
+
+        // Remove token index if present
+        if (!string.IsNullOrEmpty(storedFile.ShareToken))
+            _tokenIndex.TryRemove(storedFile.ShareToken, out _);
+
+        // Delete file from disk if exists
+        try
+        {
+            if (File.Exists(storedFile.StoredPath))
+            {
+                File.Delete(storedFile.StoredPath);
+            }
+        }
+        catch
+        {
+            // If disk delete fails, we already removed metadata; rethrow to let caller decide
+            throw;
+        }
+
+        await Task.CompletedTask;
+        return true;
     }
 }
