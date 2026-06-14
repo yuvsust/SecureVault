@@ -97,6 +97,23 @@ public class FileServiceTests
         Assert.False(result);
     }
 
+    [Fact]
+    public async Task GetFileDetails_ReturnsStoredFileWithInternalPath_ExposesBug()
+    {
+        // Arrange
+        var uploadedFile = await UploadTestFileAsync("leak.txt");
+
+        // Act
+        var details = await _fileService.GetFileDetailsAsync(uploadedFile.Id);
+
+        // Assert
+        Assert.Equal(uploadedFile.Id, details.Id);
+        Assert.Equal(uploadedFile.FileName, details.FileName);
+        // BUG: details contains the server storage path, which should not be exposed via API.
+        Assert.False(string.IsNullOrWhiteSpace(details.StoredPath));
+        Assert.Contains("VaultStorage", details.StoredPath);
+    }
+
     #endregion
 
     #region GenerateShareLink Tests

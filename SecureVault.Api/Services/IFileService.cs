@@ -2,6 +2,10 @@
 using System.IO;
 using System.Threading;
 using Microsoft.AspNetCore.Http;
+using System;
+using System.IO;
+using System.Threading;
+using Microsoft.AspNetCore.Http;
 using SecureVault.Api.Models;
 
 namespace SecureVault.Api.Services;
@@ -19,4 +23,7 @@ public interface IFileService
 
     // Delete a file by id. Returns true if deleted, false if not found.
     Task<bool> DeleteFileAsync(Guid fileId);
+
+    // Returns detailed metadata for a stored file by id.
+    Task<StoredFile> GetFileDetailsAsync(Guid fileId);
 }

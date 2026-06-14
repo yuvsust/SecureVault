@@ -154,4 +154,12 @@ public class FileService : IFileService
         await Task.CompletedTask;
         return true;
     }
+
+    public Task<StoredFile> GetFileDetailsAsync(Guid fileId)
+    {
+        if (!_fileDb.TryGetValue(fileId, out var storedFile))
+            throw new KeyNotFoundException($"File with ID {fileId} not found.");
+
+        return Task.FromResult(storedFile);
+    }
 }
