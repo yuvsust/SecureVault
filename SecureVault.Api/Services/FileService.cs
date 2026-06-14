@@ -155,11 +155,21 @@ public class FileService : IFileService
         return true;
     }
 
-    public Task<StoredFile> GetFileDetailsAsync(Guid fileId)
+    public Task<FileDetailsDto> GetFileDetailsAsync(Guid fileId)
     {
         if (!_fileDb.TryGetValue(fileId, out var storedFile))
             throw new KeyNotFoundException($"File with ID {fileId} not found.");
 
-        return Task.FromResult(storedFile);
+        // Return DTO that excludes internal StoredPath to prevent information disclosure.
+        var dto = new FileDetailsDto
+        {
+            Id = storedFile.Id,
+            FileName = storedFile.FileName,
+            UploadedAt = storedFile.UploadedAt,
+            ExpirationDate = storedFile.ExpirationDate,
+            ShareToken = storedFile.ShareToken
+        };
+
+        return Task.FromResult(dto);
     }
 }

@@ -62,6 +62,24 @@ public class FilesController : ControllerBase
         }
     }
 
+    [HttpGet("details/{id}")]
+    public async Task<IActionResult> GetDetails(Guid id)
+    {
+        try
+        {
+            var details = await _fileService.GetFileDetailsAsync(id);
+            return Ok(details);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, $"An error occurred: {ex.Message}");
+        }
+    }
+
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
     {

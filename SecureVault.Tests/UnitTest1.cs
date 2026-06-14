@@ -106,12 +106,12 @@ public class FileServiceTests
         // Act
         var details = await _fileService.GetFileDetailsAsync(uploadedFile.Id);
 
-        // Assert
+        // Assert - DTO should NOT expose internal StoredPath anymore
         Assert.Equal(uploadedFile.Id, details.Id);
         Assert.Equal(uploadedFile.FileName, details.FileName);
-        // BUG: details contains the server storage path, which should not be exposed via API.
-        Assert.False(string.IsNullOrWhiteSpace(details.StoredPath));
-        Assert.Contains("VaultStorage", details.StoredPath);
+        // FIXED: FileDetailsDto does not include StoredPath, preventing information disclosure.
+        Assert.NotNull(details.FileName);
+        Assert.True(details.UploadedAt > DateTime.MinValue);
     }
 
     #endregion

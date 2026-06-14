@@ -24,6 +24,6 @@ public interface IFileService
     // Delete a file by id. Returns true if deleted, false if not found.
     Task<bool> DeleteFileAsync(Guid fileId);
 
-    // Returns detailed metadata for a stored file by id.
-    Task<StoredFile> GetFileDetailsAsync(Guid fileId);
+    // Returns file details DTO (safe for API response, no internal paths exposed).
+    Task<FileDetailsDto> GetFileDetailsAsync(Guid fileId);
 }
